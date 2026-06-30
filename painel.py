@@ -3,7 +3,8 @@ import base64
 import os
 import json
 import socket
-from flask import Flask, request, jsonify, render_template_string
+import time
+from flask import Flask, request, jsonify, render_template_string, make_response
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
@@ -13,8 +14,8 @@ CACHE_DIR = "cache_notas"
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
 
-# --- TEMPLATE MÃE COM CACHE BUSTER NOS IFRAMES ---
-HTML_TEMPLATE = """
+# --- TEMPLATE MÃE COM CACHE BUSTER ---
+HTML_TEMPLATE = r"""
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -23,40 +24,21 @@ HTML_TEMPLATE = """
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body, html { width: 100%; height: 100%; overflow: hidden; background: #0f172a; font-family: 'Segoe UI', system-ui, sans-serif; }
-        
-        .dashboard-container { 
-            display: flex; 
-            width: 100%; 
-            height: 100%; 
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            padding: 10px;
-            gap: 12px;
-        }
-        
-        .lado-esquerdo, .lado-direito { 
-            flex: 1; 
-            height: 100%; 
-            border: none; 
-            border-radius: 12px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
-            background: #ffffff;
-            transition: all 0.3s ease;
-        }
+        .dashboard-container { display: flex; width: 100%; height: 100%; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 10px; gap: 12px; }
+        .lado-esquerdo, .lado-direito { flex: 1; height: 100%; border: none; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2); background: #ffffff; transition: all 0.3s ease; }
     </style>
 </head>
 <body>
-
     <div class="dashboard-container">
-        <iframe src="/api/cnpj_html?update=100" class="lado-esquerdo"></iframe>
-        <iframe src="/index_notas?update=100" class="lado-direito"></iframe>
+        <iframe src="/api/cnpj_html?t={{ t }}" class="lado-esquerdo"></iframe>
+        <iframe src="/index_notas?t={{ t }}" class="lado-direito"></iframe>
     </div>
-
 </body>
 </html>
 """
 
-# --- PROJETO DE NOTAS BLINDADO ---
-HTML_NOTAS_ORIGINAL = """
+# --- PROJETO DE NOTAS BLINDADO COM RAW STRING (r"") ---
+HTML_NOTAS_ORIGINAL = r"""
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -64,60 +46,45 @@ HTML_NOTAS_ORIGINAL = """
     <title>Fast Loader & Conciliador</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        :root { 
-            --primary: #3b82f6; --primary-hover: #2563eb; --bg: #f8fafc; 
-            --success: #10b981; --success-bg: #ecfdf5; --danger: #ef4444; --danger-bg: #fef2f2;
-            --pdf: #f43f5e; --xml: #0284c7; --cache: #8b5cf6; --orange: #f97316; --zip: #0d9488;
-            --slate-dark: #0f172a; --slate-text: #475569; --border: #e2e8f0;
-        }
+        :root { --primary: #3b82f6; --primary-hover: #2563eb; --bg: #f8fafc; --success: #10b981; --success-bg: #ecfdf5; --danger: #ef4444; --danger-bg: #fef2f2; --pdf: #f43f5e; --xml: #0284c7; --cache: #8b5cf6; --orange: #f97316; --zip: #0d9488; --slate-dark: #0f172a; --slate-text: #475569; --border: #e2e8f0; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; color: var(--slate-text); margin: 0; overflow-y: auto; }
         .container { max-width: 100%; margin: 0 auto; background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        
         .tabs { display: flex; gap: 6px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
         .tab-btn { padding: 10px 18px; font-weight: 600; border: none; background: none; cursor: pointer; color: #64748b; border-radius: 6px; font-size: 13.5px; }
         .tab-btn:hover { background: #f1f5f9; color: var(--slate-dark); }
         .tab-btn.active { background: #eff6ff; color: var(--primary); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-
         h1 { margin-top: 0; color: var(--slate-dark); font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 4px; }
         p.subtitle { text-align: center; color: #64748b; margin-bottom: 24px; font-size: 13px; }
         textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; font-family: monospace; font-size: 13px; margin-top: 10px; background: #fafafa; resize: vertical; }
         textarea:focus { border-color: var(--primary); outline: none; background: white; }
-        
         .btn-principal { border: none; padding: 13px; border-radius: 8px; cursor: pointer; font-weight: 600; color: white; background: var(--primary); width: 100%; font-size: 14px; margin-top: 15px; }
         .btn-principal:hover { background: var(--primary-hover); }
         .lote-actions-grid { display: flex; gap: 10px; margin-top: 15px; }
         .btn-lote { flex: 1; border: none; padding: 11px; border-radius: 8px; cursor: pointer; font-weight: 600; color: white; font-size: 13px; }
-        
         .upload-grid { display: flex; gap: 14px; margin: 20px 0; }
         .file-box { border: 2px dashed #e2e8f0; padding: 20px; text-align: center; border-radius: 8px; background: #f8fafc; flex: 1; cursor: pointer; }
         .file-box:hover { border-color: var(--primary); background: #f0f7ff; }
         .file-box span { font-size: 13px; font-weight: 600; color: #475569; }
-        
         .summary-dashboard { display: flex; gap: 12px; margin-bottom: 20px; }
         .summary-card { background: #f8fafc; border: 1px solid var(--border); padding: 12px 16px; border-radius: 8px; flex: 1; }
         .summary-card .title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; }
         .summary-card .value { font-size: 18px; font-weight: 700; color: var(--slate-dark); margin-top: 2px; }
-
         .table-container { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 20px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; background: white; }
         th, td { padding: 12px 14px; text-align: left; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         th { background: #f8fafc; color: #64748b; font-weight: 600; font-size: 10px; border-bottom: 1px solid var(--border); }
         tbody tr { border-bottom: 1px solid #f1f5f9; }
         tbody tr:hover { background: #f8fafc; }
-        
         .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; text-align: center; }
         .badge-prp { background: #fff7ed; color: var(--orange); border: 1px solid #ffedd5; cursor: pointer; }
         .badge-success { background: var(--success-bg); color: var(--success); }
         .badge-danger { background: var(--danger-bg); color: var(--danger); }
-        
         .btn-mini { padding: 5px 10px; font-size: 11px; border-radius: 4px; border: none; color: white; cursor: pointer; font-weight: 700; margin-right: 4px; }
         .btn-pdf { background: var(--pdf); } .btn-xml { background: var(--xml); }
-        
         .copy-clickable { font-family: monospace; font-size: 11.5px; color: #475569; cursor: pointer; }
         .copy-clickable:hover { color: var(--primary); text-decoration: underline; }
-        
         .copy-toast { position: fixed; background: #0f172a; color: white; padding: 6px 12px; font-size: 11px; font-weight: 600; border-radius: 4px; pointer-events: none; z-index: 9999; }
         #log, #log-conciliador { text-align: center; font-weight: 600; margin-top: 15px; color: var(--primary); font-size: 13px; }
     </style>
@@ -136,8 +103,8 @@ HTML_NOTAS_ORIGINAL = """
             <button class="btn-principal" onclick="consultarNotasSequencial()">Iniciar Consulta Lote</button>
             
             <div class="lote-actions-grid" id="acoes-lote-container" style="display: none;">
-                <button class="btn-lote" style="background: var(--pdf);" onclick="abrirTodosPdfsLote()">🚨 Abrir Todos os PDFs do Lote</button>
-                <button class="btn-lote" style="background: var(--zip);" onclick="baixarTodosXmlsZip()">📦 Baixar Todos os XMLs (.ZIP)</button>
+                <button class="btn-lote" style="background: var(--pdf);" onclick="abrirTodosPdfsLote()">🚨 Abrir Todos os PDFs</button>
+                <button class="btn-lote" style="background: var(--zip);" onclick="baixarTodosXmlsZip()">📦 Baixar Todos os XMLs</button>
             </div>
 
             <div id="log"></div>
@@ -203,7 +170,6 @@ HTML_NOTAS_ORIGINAL = """
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            if(event) event.target.classList.add('active');
             document.getElementById('tab-' + tabId).classList.add('active');
         }
         
@@ -256,15 +222,17 @@ HTML_NOTAS_ORIGINAL = """
         }
 
         async function consultarNotasSequencial() {
+            document.getElementById('log').innerHTML = "<span style='color:var(--primary);'>🚀 Iniciando leitura de chaves...</span>";
+            
             const textareaValue = document.getElementById('chaves').value;
             
-            // Separa o texto pelo código de quebra de linha nativo para evitar bugs do Python
-            const chaves = textareaValue.split(String.fromCharCode(10))
-                .map(c => c.replace(/\\D/g, '').trim()) // Extrai apenas números puros
+            // Separação blindada de linhas e filtro apenas para os 44 números exatos
+            const chaves = textareaValue.split(/\r?\n/)
+                .map(c => c.replace(/\D/g, '').trim())
                 .filter(c => c.length === 44);
             
             if (chaves.length === 0) {
-                document.getElementById('log').innerHTML = "<span style='color:red;'>⚠️ Nenhuma chave válida de 44 números foi encontrada!</span>";
+                document.getElementById('log').innerHTML = "<span style='color:red;'>⚠️ Nenhuma chave válida com 44 números foi detectada. Verifique os dados inseridos.</span>";
                 return;
             }
             
@@ -279,7 +247,7 @@ HTML_NOTAS_ORIGINAL = """
                 corpo.innerHTML += `<tr><td>${i+1}</td><td class="copy-clickable">${chaves[i]}</td><td id="st-${i}">⏳ Na fila...</td><td id="ac-${i}">-</td></tr>`;
             }
 
-            document.getElementById('log').innerText = "🚀 Processando lote em paralelo...";
+            document.getElementById('log').innerText = "🚀 Processando lote simultaneamente...";
 
             const limiteConcorrencia = 5; 
             let indiceGlobal = 0;
@@ -308,7 +276,7 @@ HTML_NOTAS_ORIGINAL = """
                             document.getElementById(`st-${i}`).innerHTML = `<span class="badge badge-danger">❌ ${d.reason}</span>`; 
                         }
                     } catch { 
-                        document.getElementById(`st-${i}`).innerHTML = `<span class="badge badge-danger">❌ Erro Técnico</span>`; 
+                        document.getElementById(`st-${i}`).innerHTML = `<span class="badge badge-danger">❌ Erro de Rede</span>`; 
                     }
                 }
             }
@@ -362,17 +330,25 @@ HTML_NOTAS_ORIGINAL = """
 
 @app.route('/')
 def index():
-    return render_template_string(HTML_TEMPLATE)
+    # Passa o Timestamp atual para destruir o cache do iframe
+    return render_template_string(HTML_TEMPLATE, t=int(time.time()))
 
 @app.route('/index_notas')
 def index_notas():
-    return render_template_string(HTML_NOTAS_ORIGINAL)
+    # A opção nuclear contra cache agressivo: Headers HTTP proibindo armazenamento
+    resp = make_response(render_template_string(HTML_NOTAS_ORIGINAL))
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
 
 @app.route('/api/cnpj_html')
 def api_cnpj_html():
     try:
         with open('CONSULTA.html', 'r', encoding='utf-8') as f:
-            return f.read()
+            resp = make_response(f.read())
+            resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return resp
     except FileNotFoundError:
         return "<h3 style='color:red;text-align:center;padding:20px;background:white;'>Erro: Arquivo 'CONSULTA.html' não encontrado na pasta!</h3>"
 
