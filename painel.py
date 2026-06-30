@@ -13,7 +13,7 @@ CACHE_DIR = "cache_notas"
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
 
-# --- NOVO LAYOUT DO TEMPLATE MÃE (DIVISOR MODERNO COM GLASSMORPHISM) ---
+# --- TEMPLATE MÃE COM CACHE BUSTER NOS IFRAMES ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -33,7 +33,6 @@ HTML_TEMPLATE = """
             gap: 12px;
         }
         
-        /* Divisão idêntica 50/50 com efeito de cards flutuantes independentes */
         .lado-esquerdo, .lado-direito { 
             flex: 1; 
             height: 100%; 
@@ -43,197 +42,83 @@ HTML_TEMPLATE = """
             background: #ffffff;
             transition: all 0.3s ease;
         }
-
-        .lado-esquerdo:hover, .lado-direito:hover {
-            box-shadow: 0 25px 30px -5px rgba(0, 0, 0, 0.4);
-        }
     </style>
 </head>
 <body>
 
     <div class="dashboard-container">
-        <iframe src="/api/cnpj_html" class="lado-esquerdo"></iframe>
-        
-        <iframe src="/index_notas" class="lado-direito"></iframe>
+        <iframe src="/api/cnpj_html?update=100" class="lado-esquerdo"></iframe>
+        <iframe src="/index_notas?update=100" class="lado-direito"></iframe>
     </div>
 
 </body>
 </html>
 """
 
-# --- NOVO LAYOUT DO PROJETO DE NOTAS (COMPLETAMENTE REESTILIZADO) E COM O MOTOR PARALELO CORRIGIDO ---
+# --- PROJETO DE NOTAS BLINDADO ---
 HTML_NOTAS_ORIGINAL = """
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Fast Loader & Conciliador Exact</title>
+    <title>Fast Loader & Conciliador</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root { 
-            --primary: #3b82f6; 
-            --primary-hover: #2563eb;
-            --bg: #f8fafc; 
-            --success: #10b981; 
-            --success-bg: #ecfdf5;
-            --danger: #ef4444;
-            --danger-bg: #fef2f2;
-            --pdf: #f43f5e; 
-            --xml: #0284c7; 
-            --cache: #8b5cf6; 
-            --orange: #f97316; 
-            --zip: #0d9488;
-            --slate-dark: #0f172a;
-            --slate-text: #475569;
-            --border: #e2e8f0;
+            --primary: #3b82f6; --primary-hover: #2563eb; --bg: #f8fafc; 
+            --success: #10b981; --success-bg: #ecfdf5; --danger: #ef4444; --danger-bg: #fef2f2;
+            --pdf: #f43f5e; --xml: #0284c7; --cache: #8b5cf6; --orange: #f97316; --zip: #0d9488;
+            --slate-dark: #0f172a; --slate-text: #475569; --border: #e2e8f0;
         }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; color: var(--slate-text); margin: 0; overflow-y: auto; }
+        .container { max-width: 100%; margin: 0 auto; background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         
-        body { 
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; 
-            background: var(--bg); 
-            padding: 20px; 
-            color: var(--slate-text); 
-            margin: 0;
-            overflow-y: auto;
-        }
-        
-        .container { 
-            max-width: 100%; 
-            margin: 0 auto; 
-            background: white; 
-            padding: 24px; 
-            border-radius: 12px; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
-        }
-        
-        /* Abas Estilo Corporativo Moderno */
-        .tabs { 
-            display: flex; 
-            gap: 6px; 
-            margin-bottom: 24px; 
-            border-bottom: 1px solid var(--border); 
-            padding-bottom: 8px; 
-        }
-        .tab-btn { 
-            padding: 10px 18px; 
-            font-weight: 600; 
-            border: none; 
-            background: none; 
-            cursor: pointer; 
-            color: #64748b; 
-            border-radius: 6px; 
-            transition: all 0.2s ease; 
-            font-size: 13.5px; 
-        }
-        .tab-btn:hover { 
-            background: #f1f5f9; 
-            color: var(--slate-dark); 
-        }
-        .tab-btn.active { 
-            background: #eff6ff; 
-            color: var(--primary); 
-        }
-        
-        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tabs { display: flex; gap: 6px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        .tab-btn { padding: 10px 18px; font-weight: 600; border: none; background: none; cursor: pointer; color: #64748b; border-radius: 6px; font-size: 13.5px; }
+        .tab-btn:hover { background: #f1f5f9; color: var(--slate-dark); }
+        .tab-btn.active { background: #eff6ff; color: var(--primary); }
+        .tab-content { display: none; }
         .tab-content.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
-        h1 { margin-top: 0; color: var(--slate-dark); font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 4px; letter-spacing: -0.5px; }
+        h1 { margin-top: 0; color: var(--slate-dark); font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 4px; }
         p.subtitle { text-align: center; color: #64748b; margin-bottom: 24px; font-size: 13px; }
+        textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; font-family: monospace; font-size: 13px; margin-top: 10px; background: #fafafa; resize: vertical; }
+        textarea:focus { border-color: var(--primary); outline: none; background: white; }
         
-        textarea { 
-            width: 100%; 
-            border: 1px solid #cbd5e1; 
-            border-radius: 8px; 
-            padding: 14px; 
-            font-family: 'SFMono-Regular', Consolas, monospace; 
-            box-sizing: border-box; 
-            font-size: 13px; 
-            margin-top: 10px; 
-            background: #fafafa; 
-            transition: all 0.2s; 
-            resize: vertical;
-        }
-        textarea:focus { border-color: var(--primary); outline: none; background: white; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
-        
-        .btn-principal { 
-            border: none; 
-            padding: 13px; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            font-weight: 600; 
-            color: white; 
-            background: var(--primary); 
-            width: 100%; 
-            font-size: 14px; 
-            margin-top: 15px; 
-            transition: background 0.2s; 
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
+        .btn-principal { border: none; padding: 13px; border-radius: 8px; cursor: pointer; font-weight: 600; color: white; background: var(--primary); width: 100%; font-size: 14px; margin-top: 15px; }
         .btn-principal:hover { background: var(--primary-hover); }
-        
         .lote-actions-grid { display: flex; gap: 10px; margin-top: 15px; }
-        .btn-lote { 
-            flex: 1; 
-            border: none; 
-            padding: 11px; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            font-weight: 600; 
-            color: white; 
-            font-size: 13px; 
-            transition: filter 0.2s; 
-            text-align: center; 
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        .btn-lote:hover { filter: brightness(0.92); }
+        .btn-lote { flex: 1; border: none; padding: 11px; border-radius: 8px; cursor: pointer; font-weight: 600; color: white; font-size: 13px; }
         
-        /* Upload Zones Limpas */
         .upload-grid { display: flex; gap: 14px; margin: 20px 0; }
-        .file-box { 
-            border: 2px dashed #e2e8f0; 
-            padding: 20px; 
-            text-align: center; 
-            border-radius: 8px; 
-            background: #f8fafc; 
-            flex: 1; 
-            cursor: pointer; 
-            transition: all 0.2s ease; 
-        }
+        .file-box { border: 2px dashed #e2e8f0; padding: 20px; text-align: center; border-radius: 8px; background: #f8fafc; flex: 1; cursor: pointer; }
         .file-box:hover { border-color: var(--primary); background: #f0f7ff; }
         .file-box span { font-size: 13px; font-weight: 600; color: #475569; }
         
-        /* Dashboard de Resumo Compacto */
         .summary-dashboard { display: flex; gap: 12px; margin-bottom: 20px; }
         .summary-card { background: #f8fafc; border: 1px solid var(--border); padding: 12px 16px; border-radius: 8px; flex: 1; }
-        .summary-card .title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px; }
+        .summary-card .title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; }
         .summary-card .value { font-size: 18px; font-weight: 700; color: var(--slate-dark); margin-top: 2px; }
 
-        /* Tabelas Polidas */
         .table-container { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 20px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; background: white; }
         th, td { padding: 12px 14px; text-align: left; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        th { background: #f8fafc; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
-        
-        tbody tr { border-bottom: 1px solid #f1f5f9; transition: background 0.15s; }
+        th { background: #f8fafc; color: #64748b; font-weight: 600; font-size: 10px; border-bottom: 1px solid var(--border); }
+        tbody tr { border-bottom: 1px solid #f1f5f9; }
         tbody tr:hover { background: #f8fafc; }
-        tbody tr:last-child { border-bottom: none; }
         
         .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 11px; text-align: center; }
         .badge-prp { background: #fff7ed; color: var(--orange); border: 1px solid #ffedd5; cursor: pointer; }
-        .badge-prp:hover { border-color: var(--primary); color: var(--primary); }
         .badge-success { background: var(--success-bg); color: var(--success); }
-        .badge-danger { background: var(--danger-bg); color: var(--danger); font-weight: 600; }
+        .badge-danger { background: var(--danger-bg); color: var(--danger); }
         
-        .btn-mini { padding: 5px 10px; font-size: 11px; border-radius: 4px; border: none; color: white; cursor: pointer; font-weight: 700; margin-right: 4px; transition: opacity 0.2s; }
-        .btn-mini:hover { opacity: 0.9; }
-        .btn-pdf { background: var(--pdf); }
-        .btn-xml { background: var(--xml); }
+        .btn-mini { padding: 5px 10px; font-size: 11px; border-radius: 4px; border: none; color: white; cursor: pointer; font-weight: 700; margin-right: 4px; }
+        .btn-pdf { background: var(--pdf); } .btn-xml { background: var(--xml); }
         
-        .copy-clickable { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11.5px; color: #475569; cursor: pointer; }
+        .copy-clickable { font-family: monospace; font-size: 11.5px; color: #475569; cursor: pointer; }
         .copy-clickable:hover { color: var(--primary); text-decoration: underline; }
         
-        .copy-toast { position: fixed; background: #0f172a; color: white; padding: 6px 12px; font-size: 11px; font-weight: 600; border-radius: 4px; pointer-events: none; z-index: 9999; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .copy-toast { position: fixed; background: #0f172a; color: white; padding: 6px 12px; font-size: 11px; font-weight: 600; border-radius: 4px; pointer-events: none; z-index: 9999; }
         #log, #log-conciliador { text-align: center; font-weight: 600; margin-top: 15px; color: var(--primary); font-size: 13px; }
     </style>
 </head>
@@ -268,7 +153,7 @@ HTML_NOTAS_ORIGINAL = """
 
         <div id="tab-conciliador" class="tab-content">
             <h1>Vinculador de Responsáveis e PRP</h1>
-            <p class="subtitle">Análise inteligível baseada na data de emissão do XML cruzada com portadores e períodos de viagem.</p>
+            <p class="subtitle">Análise inteligível baseada na data de emissão cruzada com portadores e períodos de viagem.</p>
             
             <div class="upload-grid">
                 <div class="file-box" onclick="document.getElementById('excel_extrato').click()">
@@ -282,7 +167,7 @@ HTML_NOTAS_ORIGINAL = """
                 </div>
             </div>
 
-            <button class="btn-principal" style="background:var(--orange);" onclick="executarDuplaConciliacao()">🚀 Mapear Compradores e PRPs do Lote</button>
+            <button class="btn-principal" style="background:var(--orange);" onclick="executarDuplaConciliacao()">🚀 Mapear Compradores e PRPs</button>
             <div id="log-conciliador"></div>
 
             <div class="summary-dashboard" id="dashboard-conciliacao" style="display:none; margin-top:20px;">
@@ -291,8 +176,8 @@ HTML_NOTAS_ORIGINAL = """
                     <div class="value" id="dash-total-notas">0</div>
                 </div>
                 <div class="summary-card">
-                    <div class="title">Status do Motor</div>
-                    <div class="value" style="color:var(--success);">Ativo e Cruzado</div>
+                    <div class="title">Status</div>
+                    <div class="value" style="color:var(--success);">Cruzamento Concluído</div>
                 </div>
             </div>
 
@@ -300,12 +185,12 @@ HTML_NOTAS_ORIGINAL = """
                 <table id="tabela-conciliacao">
                     <thead>
                         <tr>
-                            <th style="width: 12%; text-align: center;">Data (Nota)</th>
-                            <th style="width: 11%; text-align: center;">Nº da Nota</th>
+                            <th style="width: 12%; text-align: center;">Data</th>
+                            <th style="width: 11%; text-align: center;">Nº Nota</th>
                             <th style="width: 26%;">🔑 Chave de Acesso</th>
                             <th style="width: 13%;">Valor NF</th>
-                            <th style="width: 23%;">👤 Quem Comprou (Conta Simples)</th>
-                            <th style="width: 15%;">🏢 PRP Vinculada</th>
+                            <th style="width: 23%;">👤 Quem Comprou</th>
+                            <th style="width: 15%;">🏢 PRP</th>
                         </tr>
                     </thead>
                     <tbody id="corpo-conciliacao"></tbody>
@@ -339,7 +224,6 @@ HTML_NOTAS_ORIGINAL = """
             });
         }
         
-        const sleep = ms => new Promise(r => setTimeout(r, ms));
         let cacheNotas = {}; let chavesDoLoteAtual = [];
         
         function gerarBlobPdf(base64Data) {
@@ -372,10 +256,17 @@ HTML_NOTAS_ORIGINAL = """
         }
 
         async function consultarNotasSequencial() {
-            // Utilizando \\r?\\n para o Python não interpretar e manter a regex no JS
-            const chaves = document.getElementById('chaves').value.split(/\\r?\\n/).map(c => c.trim()).filter(c => c.length == 44);
+            const textareaValue = document.getElementById('chaves').value;
             
-            if (!chaves.length) return alert("Insira chaves válidas.");
+            // Separa o texto pelo código de quebra de linha nativo para evitar bugs do Python
+            const chaves = textareaValue.split(String.fromCharCode(10))
+                .map(c => c.replace(/\\D/g, '').trim()) // Extrai apenas números puros
+                .filter(c => c.length === 44);
+            
+            if (chaves.length === 0) {
+                document.getElementById('log').innerHTML = "<span style='color:red;'>⚠️ Nenhuma chave válida de 44 números foi encontrada!</span>";
+                return;
+            }
             
             chavesDoLoteAtual = chaves;
             document.getElementById('acoes-lote-container').style.display = 'none';
@@ -417,7 +308,7 @@ HTML_NOTAS_ORIGINAL = """
                             document.getElementById(`st-${i}`).innerHTML = `<span class="badge badge-danger">❌ ${d.reason}</span>`; 
                         }
                     } catch { 
-                        document.getElementById(`st-${i}`).innerHTML = `<span class="badge badge-danger">❌ Erro</span>`; 
+                        document.getElementById(`st-${i}`).innerHTML = `<span class="badge badge-danger">❌ Erro Técnico</span>`; 
                     }
                 }
             }
@@ -454,7 +345,7 @@ HTML_NOTAS_ORIGINAL = """
                 
                 const corpo = document.getElementById('corpo-conciliacao'); corpo.innerHTML = '';
                 result.results.forEach(item => {
-                    let prpBadge = `<span class="badge badge-prp" title="Clique para copiar a PRP" onclick="copiarTextoRapido(this, event)">%${item.prp}</span>`;
+                    let prpBadge = `<span class="badge badge-prp" onclick="copiarTextoRapido(this, event)">%${item.prp}</span>`;
                     if(item.prp.includes("Não localizado")) prpBadge = `<span class="badge badge-danger">Não Localizado</span>`;
                     let compradorStyle = item.comprador.includes("Não localizado") ? 'color:#94a3b8; font-weight:normal;' : 'color:var(--slate-dark); font-weight:600;';
                     corpo.innerHTML += `<tr><td style="text-align: center; font-weight:600; color:#475569;" class="copy-clickable" onclick="copiarTextoRapido(this, event)">${item.data_nota_pt || '-'}</td><td style="text-align: center;" class="copy-clickable" onclick="copiarTextoRapido(this, event)">${item.numero_nota || '-'}</td><td class="copy-clickable" style="color:#64748b;" onclick="copiarTextoRapido(this, event)">${item.chave}</td><td style="font-weight:700; color:var(--primary);">R$ ${item.valor_nota.toFixed(2)}</td><td style="${compradorStyle}">${item.comprador}</td><td>${prpBadge}</td></tr>`;
@@ -486,7 +377,7 @@ def api_cnpj_html():
         return "<h3 style='color:red;text-align:center;padding:20px;background:white;'>Erro: Arquivo 'CONSULTA.html' não encontrado na pasta!</h3>"
 
 
-# --- SUAS ROTAS DE LOGICA DA API (MANTIDAS 100% INTACTAS) ---
+# --- SUAS ROTAS DE LOGICA DA API ---
 
 @app.route('/api/consulta_direta', methods=['POST'])
 def api_consulta_direta():
@@ -591,6 +482,5 @@ def api_conciliar_duplo_restrito():
         return jsonify({"success": False, "reason": f"Erro de Mapeamento: {str(e)}"})
 
 if __name__ == '__main__':
-    # Usa a porta fornecida pelo Railway ou a porta 8080 localmente
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port, debug=True, threaded=True)
