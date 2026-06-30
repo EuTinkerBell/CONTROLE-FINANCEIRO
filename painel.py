@@ -2,7 +2,6 @@ import requests
 import base64
 import os
 import json
-import socket
 import time
 from flask import Flask, request, jsonify, render_template_string, make_response
 from datetime import datetime, timedelta
@@ -14,7 +13,7 @@ CACHE_DIR = "cache_notas"
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
 
-# --- TEMPLATE MÃE COM CACHE BUSTER ---
+# --- TEMPLATE MÃE (DIVIDIDO E COM CACHE BUSTER) ---
 HTML_TEMPLATE = r"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -37,7 +36,7 @@ HTML_TEMPLATE = r"""
 </html>
 """
 
-# --- PROJETO DE NOTAS BLINDADO COM RAW STRING (r"") ---
+# --- TELA DE NOTAS (MODO EXECUTIVO + BOTÃO BLINDADO + PARALELO) ---
 HTML_NOTAS_ORIGINAL = r"""
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -226,13 +225,13 @@ HTML_NOTAS_ORIGINAL = r"""
             
             const textareaValue = document.getElementById('chaves').value;
             
-            // Separação blindada de linhas e filtro apenas para os 44 números exatos
-            const chaves = textareaValue.split(/\r?\n/)
+            // AQUI É A MÁGICA DA BLINDAGEM: Lê as quebras de linha nativas, limpa sujeira e extrai os números.
+            const chaves = textareaValue.split(String.fromCharCode(10))
                 .map(c => c.replace(/\D/g, '').trim())
                 .filter(c => c.length === 44);
             
             if (chaves.length === 0) {
-                document.getElementById('log').innerHTML = "<span style='color:red;'>⚠️ Nenhuma chave válida com 44 números foi detectada. Verifique os dados inseridos.</span>";
+                document.getElementById('log').innerHTML = "<span style='color:red;'>⚠️ Nenhuma chave válida com 44 números foi detectada. Verifique se copiou corretamente.</span>";
                 return;
             }
             
@@ -330,12 +329,12 @@ HTML_NOTAS_ORIGINAL = r"""
 
 @app.route('/')
 def index():
-    # Passa o Timestamp atual para destruir o cache do iframe
+    # Envia o tempo para forçar atualização do cache do iframe
     return render_template_string(HTML_TEMPLATE, t=int(time.time()))
 
 @app.route('/index_notas')
 def index_notas():
-    # A opção nuclear contra cache agressivo: Headers HTTP proibindo armazenamento
+    # Bloqueia qualquer tentativa do Railway ou do Navegador de usar código velho
     resp = make_response(render_template_string(HTML_NOTAS_ORIGINAL))
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     resp.headers['Pragma'] = 'no-cache'
@@ -352,8 +351,7 @@ def api_cnpj_html():
     except FileNotFoundError:
         return "<h3 style='color:red;text-align:center;padding:20px;background:white;'>Erro: Arquivo 'CONSULTA.html' não encontrado na pasta!</h3>"
 
-
-# --- SUAS ROTAS DE LOGICA DA API ---
+# --- ROTAS DA API ---
 
 @app.route('/api/consulta_direta', methods=['POST'])
 def api_consulta_direta():
@@ -459,4 +457,4 @@ def api_conciliar_duplo_restrito():
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port, debug=True, threaded=True)
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
